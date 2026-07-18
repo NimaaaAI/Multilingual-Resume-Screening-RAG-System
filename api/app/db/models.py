@@ -55,3 +55,26 @@ class Chunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Entity(Base):
+    __tablename__ = "entities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    # e.g. "skill", "company", "title", "institution" — kept as a plain string rather than a DB
+    # enum so new entity types can be added later without a migration.
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EntityEdge(Base):
+    __tablename__ = "entity_edges"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity_id_a: Mapped[int] = mapped_column(ForeignKey("entities.id"), nullable=False)
+    entity_id_b: Mapped[int] = mapped_column(ForeignKey("entities.id"), nullable=False)
+    # e.g. "has_skill", "worked_at" — same reasoning as Entity.type, a plain string.
+    relation: Mapped[str] = mapped_column(String, nullable=False)
+    source_chunk_id: Mapped[int | None] = mapped_column(ForeignKey("chunks.id"), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
