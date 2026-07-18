@@ -2,13 +2,35 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: resume_rag
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: resume_rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://resume_rag:changeme@localhost:5432/resume_rag
+      # Reusing the same ephemeral CI database for tests is fine here — the whole container
+      # is thrown away after the run, unlike local dev where dev/test data must stay separate.
+      TEST_DATABASE_URL: postgresql://resume_rag:changeme@localhost:5432/resume_rag
+      REDIS_URL: redis://localhost:6379/0
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +45,12 @@ jobs:
 
       - name: Lint
         run: ruff check .
+
+      - name: Enable pgvector extension
+        run: PGPASSWORD=changeme psql -h localhost -U resume_rag -d resume_rag -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+      - name: Run migrations
+        run: alembic upgrade head
 
       - name: Run tests
         run: python -m pytest
