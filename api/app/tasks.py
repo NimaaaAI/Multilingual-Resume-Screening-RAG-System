@@ -1,11 +1,11 @@
 import uuid
 
+from api.app.chunker import chunk_text
 from api.app.db.models import Candidate, Chunk, JobPosting, Resume
 from api.app.db.session import SessionLocal
-from api.app.embeddings.embedder import embed_texts
-from api.app.graph.entities import extract_entities, save_entities
-from api.app.ingestion.chunker import chunk_text
-from api.app.ingestion.parser import detect_language, parse_docx, parse_pdf, parse_txt
+from api.app.embedder import embed_texts
+from api.app.entities import extract_entities, save_entities
+from api.app.parser import detect_language, parse_docx, parse_pdf, parse_txt
 
 PARSERS = {
     "pdf": parse_pdf,

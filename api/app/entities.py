@@ -1,7 +1,7 @@
 import json
 
 from api.app.db.models import Entity, EntityEdge
-from api.app.graph.llm import generate
+from api.app.llm import generate
 
 EXTRACTION_PROMPT = """Extract structured information from this resume text. \
 Respond with ONLY valid JSON, no markdown fences, no other text, in this exact shape:

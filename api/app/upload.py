@@ -6,7 +6,7 @@ from redis import Redis
 from rq import Queue
 
 from api.app.config import settings
-from api.app.workers.tasks import process_job_posting, process_resume
+from api.app.tasks import process_job_posting, process_resume
 
 router = APIRouter()
 
