@@ -62,9 +62,12 @@ class Entity(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    # e.g. "skill", "company", "title", "institution" — kept as a plain string rather than a DB
-    # enum so new entity types can be added later without a migration.
+    # e.g. "skill", "company", "title", "institution", "candidate" — kept as a plain string rather
+    # than a DB enum so new entity types can be added later without a migration.
     type: Mapped[str] = mapped_column(String, nullable=False)
+    # Set only when type == "candidate" — links this graph node back to the real Candidate row,
+    # so edges like (candidate entity) -[has_skill]-> (skill entity) are representable.
+    candidate_id: Mapped[int | None] = mapped_column(ForeignKey("candidates.id"), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
