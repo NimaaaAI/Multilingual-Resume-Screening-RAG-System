@@ -6,7 +6,9 @@ class Settings(BaseSettings):
 
     database_url: str
     redis_url: str
-    groq_api_key: str = ""
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.gapgpt.app/v1"
+    llm_model: str = "gpt-4o-mini"
 
 
 settings = Settings()

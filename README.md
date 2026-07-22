@@ -78,10 +78,25 @@ alembic upgrade head
 uvicorn api.app.main:app --reload
 ```
 
-### 6. Run tests / lint
+### 6. Run the background worker
+
+Uploads are processed by a separate RQ worker process, not the API itself — run this in another
+terminal tab (with the venv activated) whenever you want uploads to actually get processed:
 
 ```bash
-python -m pytest
+rq worker --worker-class rq.worker.SimpleWorker --url redis://localhost:6379/0
+```
+
+**Why `SimpleWorker` and not the default `Worker`:** RQ's default worker forks a child process per
+job for isolation. On macOS, forking *after* certain native libraries (Apple's Objective-C
+runtime, and separately PyTorch's BLAS/OpenMP threading, used by the embedding model) have already
+initialized is unsafe and crashes with a signal-6 abort. `SimpleWorker` runs jobs directly in the
+same process instead of forking, sidestepping this — a normal, supported RQ mode, not a hack.
+This is a macOS-only development quirk; it won't apply once this runs in Docker/Linux later.
+
+### 7. Lint
+
+```bash
 ruff check .
 ```
 

@@ -1,9 +1,11 @@
 import uuid
 
+from api.app.chunker import chunk_text
 from api.app.db.models import Candidate, Chunk, JobPosting, Resume
 from api.app.db.session import SessionLocal
-from api.app.ingestion.chunker import chunk_text
-from api.app.ingestion.parser import detect_language, parse_docx, parse_pdf, parse_txt
+from api.app.embedder import embed_texts
+from api.app.entities import extract_entities, save_entities
+from api.app.parser import detect_language, parse_docx, parse_pdf, parse_txt
 
 PARSERS = {
     "pdf": parse_pdf,
@@ -18,11 +20,13 @@ def process_resume(file_path: str, file_type: str) -> int:
 
     text = PARSERS[file_type](raw_bytes)
     language = detect_language(text)
+    chunks = chunk_text(text)
+    embeddings = embed_texts(chunks) if chunks else []
 
     session = SessionLocal()
     try:
-        # Real candidate identity isn't known yet — Phase 3's entity extraction fills this in.
-        # A placeholder row lets the resume/chunks exist without waiting on that step.
+        # Real candidate identity isn't known yet — the entity extraction below fills in the
+        # graph side, but a placeholder row lets the resume/chunks exist without waiting on it.
         candidate = Candidate(name="Unknown", email=f"pending-{uuid.uuid4()}@placeholder.local")
         session.add(candidate)
         session.flush()  # populate candidate.id without committing yet
@@ -31,8 +35,16 @@ def process_resume(file_path: str, file_type: str) -> int:
         session.add(resume)
         session.flush()
 
-        for index, chunk in enumerate(chunk_text(text)):
-            session.add(Chunk(resume_id=resume.id, text=chunk, chunk_index=index))
+        first_chunk_id = None
+        for index, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            chunk_row = Chunk(resume_id=resume.id, text=chunk, chunk_index=index, embedding=embedding)
+            session.add(chunk_row)
+            session.flush()
+            if first_chunk_id is None:
+                first_chunk_id = chunk_row.id
+
+        extracted = extract_entities(text)
+        save_entities(session, candidate_id=candidate.id, extracted=extracted, source_chunk_id=first_chunk_id)
 
         session.commit()
         return resume.id
@@ -46,6 +58,8 @@ def process_job_posting(file_path: str, file_type: str, title: str) -> int:
 
     text = PARSERS[file_type](raw_bytes)
     language = detect_language(text)
+    chunks = chunk_text(text)
+    embeddings = embed_texts(chunks) if chunks else []
 
     session = SessionLocal()
     try:
@@ -53,8 +67,8 @@ def process_job_posting(file_path: str, file_type: str, title: str) -> int:
         session.add(job_posting)
         session.flush()
 
-        for index, chunk in enumerate(chunk_text(text)):
-            session.add(Chunk(job_posting_id=job_posting.id, text=chunk, chunk_index=index))
+        for index, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            session.add(Chunk(job_posting_id=job_posting.id, text=chunk, chunk_index=index, embedding=embedding))
 
         session.commit()
         return job_posting.id
