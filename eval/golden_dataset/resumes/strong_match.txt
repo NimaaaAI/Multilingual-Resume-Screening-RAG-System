@@ -1,0 +1,3 @@
+Experienced Software Engineer with 5 years building distributed systems in Python. Deep
+experience with Docker for containerization and Git for version control. Previously worked at
+Google as a backend engineer.

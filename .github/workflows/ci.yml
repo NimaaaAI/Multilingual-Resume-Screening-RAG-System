@@ -23,3 +23,55 @@ jobs:
 
       - name: Lint
         run: ruff check .
+
+  eval:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: resume_rag
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: resume_rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://resume_rag:changeme@localhost:5432/resume_rag
+      REDIS_URL: redis://localhost:6379/0
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Enable pgvector extension
+        run: PGPASSWORD=changeme psql -h localhost -U resume_rag -d resume_rag -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+      - name: Run migrations
+        run: alembic upgrade head
+
+      - name: Run evaluation harness (score reported, does not fail the build)
+        run: |
+          if [ -z "$LLM_API_KEY" ]; then
+            echo "LLM_API_KEY secret not configured — skipping evaluation run."
+          else
+            python -m api.app.eval.run
+          fi

@@ -1,6 +1,6 @@
 from sqlalchemy import func
 
-from api.app.db.models import Chunk, Entity, EntityEdge
+from api.app.db.models import Candidate, Chunk, Entity, EntityEdge, Resume
 from api.app.embedder import embed_query
 
 
@@ -73,3 +73,46 @@ def expand_via_graph(session, skill_names: list[str]) -> set[int]:
         .all()
     ]
     return set(candidate_ids)
+
+
+def rank_job_posting(session, job_posting) -> list[tuple[int, float]]:
+    """Full hybrid search + graph expansion + rerank pipeline for one job posting. Shared by the
+    /results endpoint and the eval harness, so both score candidates identically."""
+    from api.app.entities import extract_entities
+    from api.app.reranker import rerank
+
+    query_text = job_posting.raw_text
+
+    fused_scores = reciprocal_rank_fusion(
+        keyword_search(session, query_text),
+        vector_search(session, query_text),
+    )
+
+    candidate_scores: dict[int, float] = {}
+    if fused_scores:
+        chunk_rows = (
+            session.query(Chunk.id, Resume.candidate_id)
+            .join(Resume, Resume.id == Chunk.resume_id)
+            .filter(Chunk.id.in_(fused_scores.keys()))
+            .all()
+        )
+        for chunk_id, candidate_id in chunk_rows:
+            candidate_scores[candidate_id] = max(candidate_scores.get(candidate_id, 0.0), fused_scores[chunk_id])
+
+    try:
+        required_skills = extract_entities(query_text).get("skills", [])
+    except Exception:
+        required_skills = []
+    for candidate_id in expand_via_graph(session, required_skills):
+        candidate_scores.setdefault(candidate_id, 0.0)
+
+    if not candidate_scores:
+        return []
+
+    candidates = (
+        session.query(Candidate.id, Resume.raw_text)
+        .join(Resume, Resume.candidate_id == Candidate.id)
+        .filter(Candidate.id.in_(candidate_scores.keys()))
+        .all()
+    )
+    return rerank(query_text, [(row.id, row.raw_text) for row in candidates])

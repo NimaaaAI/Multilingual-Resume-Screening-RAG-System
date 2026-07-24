@@ -1,0 +1,2 @@
+We are hiring a Software Engineer with strong Python skills, hands-on experience with Docker,
+and solid Git/version-control practices. Experience with distributed systems is a plus.

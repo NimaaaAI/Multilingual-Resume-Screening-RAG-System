@@ -1,0 +1,2 @@
+Junior developer with one year of experience writing Python scripts for data processing.
+Familiar with Git basics. No containerization or Docker experience yet.
