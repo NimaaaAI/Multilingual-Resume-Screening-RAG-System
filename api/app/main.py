@@ -1,11 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 
-from api.app import upload
+from api.app import rank, upload
 from api.app.db.session import engine
 
 app = FastAPI()
 app.include_router(upload.router)
+app.include_router(rank.router)
 
 
 @app.get("/")
